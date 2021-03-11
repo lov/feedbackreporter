@@ -130,8 +130,9 @@
 {
     NSNumber *hours = [[[NSBundle mainBundle] infoDictionary] objectForKey:PLIST_KEY_LOGHOURS];
 
-    int h = 24;
-
+  //  int h = 24;
+    int h = 1;
+    
     if (hours != nil) {
         h = [hours intValue];
     }
@@ -276,6 +277,48 @@
     }
 }
 
+#pragma mark Collecting for Save
+
+- (NSDictionary *)logsForSave {
+
+    NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+    
+    
+    [dict setValidString:[FRApplication applicationShortVersion]
+                  forKey:POST_KEY_VERSION_SHORT];
+    
+    [dict setValidString:[FRApplication applicationBundleVersion]
+                  forKey:POST_KEY_VERSION_BUNDLE];
+    
+    [dict setValidString:[FRApplication applicationVersion]
+                  forKey:POST_KEY_VERSION];
+    
+    id<FRFeedbackReporterDelegate> strongDelegate = [self delegate];
+    
+    if ([strongDelegate respondsToSelector:@selector(customParametersForFeedbackReport)]) {
+        NSDictionary *customParams = [strongDelegate customParametersForFeedbackReport];
+        if (customParams) {
+            [dict addEntriesFromDictionary:customParams];
+        }
+    }
+    
+    [dict setValidString:[self systemProfileAsString]
+                  forKey:POST_KEY_SYSTEM];
+    
+    [dict setValidString:[self consoleLog]
+                  forKey:POST_KEY_CONSOLE];
+    
+    [dict setValidString:[self crashLog]
+                  forKey:POST_KEY_CRASHES];
+    
+    [dict setValidString:[self scriptLog]
+                  forKey:POST_KEY_SHELL];
+    
+    [dict setValidString:[self preferences]
+                  forKey:POST_KEY_PREFERENCES];
+        
+    return dict;
+}
 
 #pragma mark UI Actions
 
@@ -296,6 +339,7 @@
         [[self window] setFrame: windowFrame
                         display: YES
                         animate: animate];
+        
 
     } else {
         windowFrame.origin.y += fullSize.height;
@@ -307,6 +351,7 @@
     }
 
     [self setDetailsShown:show];
+    
 }
 
 - (IBAction) showDetails:(id)sender

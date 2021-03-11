@@ -44,10 +44,13 @@ NS_ASSUME_NONNULL_BEGIN
 - (IBAction) cancel:(id)sender;
 - (IBAction) send:(id)sender;
 
+
 #pragma mark Other
 
 - (void) reset;
 - (BOOL) isShown;
+
+- (NSDictionary *)logsForSave;
 
 @end
 

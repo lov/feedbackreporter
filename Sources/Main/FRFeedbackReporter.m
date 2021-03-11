@@ -198,4 +198,9 @@
     return YES;
 }
 
+- (NSDictionary *)logsForSave {
+    
+    return [[self feedbackController] logsForSave];
+}
+
 @end

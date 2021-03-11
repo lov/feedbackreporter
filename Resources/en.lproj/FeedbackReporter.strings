@@ -32,7 +32,7 @@
 "Exception" = "Exception";
 
 /* Comment label text for feedback */
-"Feedback comment label" = "Your feedback:";
+"Feedback comment label" = "Please describe the problem:";
 
 /* */
 "Feedback" = "Feedback";
@@ -41,7 +41,7 @@
 "Feedback Host Not Reachable" = "Feedback Host Not Reachable";
 
 /* Feedback message text */
-"Got a problem with %@?" = "Got an idea how to improve %@?";
+"Got a problem with %@?" = "Need help with %@?";
 
 /* */
 "OK" = "OK";
@@ -65,7 +65,7 @@
 "Send details" = "Send details";
 
 /* Informative text for feedback */
-"Send feedback" = "To help us improve our software your feedback is highly welcome! Click Details to see what information is sent to us.";
+"Send feedback" = "We're happy to help! Please describe the problem below and send it to us along any other helpful information.";
 
 /* */
 "Sorry, failed to submit your feedback to the server." = "Error submitting your feedback to the server.";

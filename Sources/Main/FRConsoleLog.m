@@ -23,13 +23,13 @@
 
 #define FR_CONSOLELOG_TIME 0
 #define FR_CONSOLELOG_TEXT 1
+#define FR_CONSOLELOG_SENDER 2
+//#define FR_CONSOLELOG_APP_ONLY
 
 @implementation FRConsoleLog
 
 + (NSString*) logSince:(NSDate*)since maxSize:(nullable NSNumber*)maximumSize
 {
-    assert(since);
-
     NSUInteger consoleOutputLength = 0;
     NSUInteger rawConsoleLinesCapacity = 100;
     NSUInteger consoleLinesProcessed = 0;
@@ -38,9 +38,9 @@
     NSMutableString *consoleString = [[NSMutableString alloc] init];
     NSMutableArray *consoleLines = [[NSMutableArray alloc] init];
 
-    // We want the dates and times to be displayed in a standardised form (ISO 8601).
     NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-    [dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    [dateFormatter setDateStyle:NSDateFormatterMediumStyle];
+    [dateFormatter setTimeStyle:NSDateFormatterMediumStyle];
     
     // ASL does not work in App Sandbox, even read-only. <rdar://problem/9689364>
     // Workaround is to use:
@@ -51,11 +51,17 @@
     
     if (query != NULL) {
 
-        NSString *applicationName = [FRApplication applicationName];
         NSString *sinceString = [NSString stringWithFormat:@"%01f", [since timeIntervalSince1970]];
-
-        asl_set_query(query, ASL_KEY_SENDER, [applicationName UTF8String], ASL_QUERY_OP_EQUAL);
         asl_set_query(query, ASL_KEY_TIME, [sinceString UTF8String], ASL_QUERY_OP_GREATER_EQUAL);
+        // Prevent premature garbage collection (UTF8String returns an inner pointer).
+        [sinceString self];
+        
+#ifdef FR_CONSOLELOG_APP_ONLY
+        NSString *applicationName = [FRApplication applicationName];
+        asl_set_query(query, ASL_KEY_SENDER, [applicationName UTF8String], ASL_QUERY_OP_EQUAL);
+        // Prevent premature garbage collection (UTF8String returns an inner pointer).
+        [applicationName self];
+#endif
 
         // This function is very slow. <rdar://problem/7695589>
         aslresponse response = asl_search(NULL, query);
@@ -67,7 +73,7 @@
 
             aslmsg msg = NULL;
 
-            while (NULL != (msg = aslresponse_next(response))) {
+            while (NULL != (msg = asl_next(response))) {
 
                 const char *msgTime = asl_get(msg, ASL_KEY_TIME);
                 
@@ -80,16 +86,22 @@
                 if (msgText == NULL) {
                     continue;
                 }
+                
+                const char *msgSender = asl_get(msg, ASL_KEY_SENDER);
+                
+                if (msgSender == NULL) {
+                    msgSender = "";
+                }
 
                 // Ensure sufficient capacity to store this line in the local cache
                 consoleLinesProcessed++;
                 if (consoleLinesProcessed > rawConsoleLinesCapacity) {
-                    rawConsoleLinesCapacity *= 2;
+                    rawConsoleLinesCapacity *= 3;
                     rawConsoleLines = reallocf(rawConsoleLines, rawConsoleLinesCapacity * sizeof(char **));
                 }
 
                 // Add a new entry for this console line
-                char **rawLineContents = malloc(2 * sizeof(char *));
+                char **rawLineContents = malloc(3 * sizeof(char *));
                 
                 size_t length = strlen(msgTime) + 1;
                 rawLineContents[FR_CONSOLELOG_TIME] = malloc(length);
@@ -98,30 +110,27 @@
                 length = strlen(msgText) + 1;
                 rawLineContents[FR_CONSOLELOG_TEXT] = malloc(length);
                 strlcpy(rawLineContents[FR_CONSOLELOG_TEXT], msgText, length);
+                
+                length = strlen(msgSender) + 1;
+                rawLineContents[FR_CONSOLELOG_SENDER] = malloc(length);
+                strlcpy(rawLineContents[FR_CONSOLELOG_SENDER], msgSender, length);
 
                 rawConsoleLines[consoleLinesProcessed-1] = rawLineContents;
             }
 
-            aslresponse_free(response);
+            asl_release(response);
 
             // Loop through the console lines in reverse order, converting to NSStrings
             if (consoleLinesProcessed) {
                 for (NSInteger i = consoleLinesProcessed - 1; i >= 0; i--) {
                     char **line = rawConsoleLines[i];
-                    double dateInterval = strtod(line[FR_CONSOLELOG_TIME], NULL);
-                    NSDate *date = [NSDate dateWithTimeIntervalSince1970:dateInterval];
-                    NSString *dateString = [dateFormatter stringFromDate:date];
-                    NSString *lineString = [NSString stringWithUTF8String:line[FR_CONSOLELOG_TEXT]];
-                    NSString *fullString = [NSString stringWithFormat:@"%@: %@\n", dateString, lineString];
-                    [consoleLines addObject:fullString];
+                    NSDate *date = [NSDate dateWithTimeIntervalSince1970:atof(line[FR_CONSOLELOG_TIME])];
+                    [consoleLines addObject:[NSString stringWithFormat:@"%@ %s: %s\n", [dateFormatter stringFromDate:date], line[FR_CONSOLELOG_SENDER], line[FR_CONSOLELOG_TEXT]]];
 
-                    // If a maximum size has been provided, respect it and abort if necessary
-                    if (maximumSize != nil) {
-                        NSString* lastLine = [consoleLines lastObject];
-                        consoleOutputLength += [lastLine length];
-                        if (consoleOutputLength > [maximumSize unsignedIntegerValue]) {
-                            break;
-                        }
+                    // If a maximum size > 0 has been provided, respect it and abort if necessary
+                    if (maximumSize > 0) {
+                        consoleOutputLength += [(NSString *)[consoleLines lastObject] length];
+                        if (consoleOutputLength > [maximumSize unsignedIntegerValue]) break;
                     }
                 }
             }
@@ -129,12 +138,15 @@
     }
 
     // Convert the console lines array to an output string
-    for (NSString *line in [consoleLines reverseObjectEnumerator]) {
-        [consoleString appendString:line];
+    if ([consoleLines count]) {
+        for (NSInteger i = [consoleLines count] - 1; i >= 0; i--) {
+            [consoleString appendString:[consoleLines objectAtIndex:i]];
+        }
     }
 
     // Free data stores
     for (NSUInteger i = 0; i < consoleLinesProcessed; i++) {
+        free(rawConsoleLines[i][FR_CONSOLELOG_SENDER]);
         free(rawConsoleLines[i][FR_CONSOLELOG_TEXT]);
         free(rawConsoleLines[i][FR_CONSOLELOG_TIME]);
         free(rawConsoleLines[i]);
