@@ -24,8 +24,9 @@
 {
     assert(x);
 
+    // we does not really want this, as this prevents our controller to be shown and shows a system-wide exception panel
     // NSApplication is documented to log, let it.
-    [super reportException: x];
+   // [super reportException: x];
 
     @try {
         // Cocoa's default behaviour here depends on the current thread.

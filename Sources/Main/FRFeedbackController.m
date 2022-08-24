@@ -27,7 +27,6 @@
 
 #import "NSMutableDictionary+Additions.h"
 
-#import <AddressBook/AddressBook.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 
 // Private interface.
@@ -45,37 +44,18 @@
 #endif
 
 @property (readwrite, weak, nonatomic) IBOutlet NSTextField *emailLabel;
-@property (readwrite, weak, nonatomic) IBOutlet NSComboBox *emailBox;
+@property (readwrite, weak, nonatomic) IBOutlet NSTextField *emailField;
 
 @property (readwrite, weak, nonatomic) IBOutlet NSButton *detailsButton;
 @property (readwrite, weak, nonatomic) IBOutlet NSTextField *detailsLabel;
 
-@property (readwrite, weak, nonatomic) IBOutlet NSButton *sendDetailsCheckbox;
-
-@property (readwrite, weak, nonatomic) IBOutlet NSTabView *tabView;
-
-// Even though they are not top-level objects, keep strong references to the tabViews.
-@property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabSystem;
-@property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabConsole;
-@property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabCrash;
-@property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabScript;
-@property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabPreferences;
-@property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabException;
-
-@property (readwrite, weak, nonatomic) IBOutlet NSTableView *systemView;
 #if (MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
-@property (readwrite, assign, nonatomic) IBOutlet NSTextView *consoleView;
-@property (readwrite, assign, nonatomic) IBOutlet NSTextView *crashesView;
-@property (readwrite, assign, nonatomic) IBOutlet NSTextView *scriptView;
-@property (readwrite, assign, nonatomic) IBOutlet NSTextView *preferencesView;
-@property (readwrite, assign, nonatomic) IBOutlet NSTextView *exceptionView;
+@property (readwrite, assign, nonatomic) IBOutlet NSTextView *logView;
 #else
-@property (readwrite, weak, nonatomic) IBOutlet NSTextView *consoleView;
-@property (readwrite, weak, nonatomic) IBOutlet NSTextView *crashesView;
-@property (readwrite, weak, nonatomic) IBOutlet NSTextView *scriptView;
-@property (readwrite, weak, nonatomic) IBOutlet NSTextView *preferencesView;
-@property (readwrite, weak, nonatomic) IBOutlet NSTextView *exceptionView;
+@property (readwrite, weak, nonatomic) IBOutlet NSTextView *logView;
 #endif
+
+
 
 @property (readwrite, weak, nonatomic) IBOutlet NSProgressIndicator *indicator;
 
@@ -117,11 +97,6 @@
 - (void) setMessage:(nullable NSString*)message
 {
     [[self messageView] setString:message];
-}
-
-- (void) setException:(nullable NSString*)exception
-{
-    [[self exceptionView] setString:exception];
 }
 
 #pragma mark information gathering
@@ -264,7 +239,8 @@
         return @"";
     }
 
-    [preferences removeObjectForKey:DEFAULTS_KEY_SENDEREMAIL];
+    // why would we reset this?
+//    [preferences removeObjectForKey:DEFAULTS_KEY_SENDEREMAIL];
 
     id<FRFeedbackReporterDelegate> strongDelegate = [self delegate];
     if ([strongDelegate respondsToSelector:@selector(anonymizePreferencesForFeedbackReport:)]) {
@@ -305,14 +281,8 @@
     [dict setValidString:[self systemProfileAsString]
                   forKey:POST_KEY_SYSTEM];
     
-    [dict setValidString:[self consoleLog]
-                  forKey:POST_KEY_CONSOLE];
-    
     [dict setValidString:[self crashLog]
                   forKey:POST_KEY_CRASHES];
-    
-    [dict setValidString:[self scriptLog]
-                  forKey:POST_KEY_SHELL];
     
     [dict setValidString:[self preferences]
                   forKey:POST_KEY_PREFERENCES];
@@ -434,7 +404,7 @@
 
     NSMutableDictionary *dict = [NSMutableDictionary dictionary];
 
-    [dict setValidString:[[self emailBox] stringValue]
+    [dict setValidString:[[self emailField] stringValue]
                   forKey:POST_KEY_EMAIL];
 
     [dict setValidString:[[self messageView] string]
@@ -452,32 +422,25 @@
     [dict setValidString:[FRApplication applicationVersion]
                   forKey:POST_KEY_VERSION];
 
-    if ([[self sendDetailsCheckbox] state] == NSOnState) {
-        if ([strongDelegate respondsToSelector:@selector(customParametersForFeedbackReport)]) {
-            NSDictionary *customParams = [strongDelegate customParametersForFeedbackReport];
-            if (customParams) {
-                [dict addEntriesFromDictionary:customParams];
-            }
+    if ([strongDelegate respondsToSelector:@selector(customParametersForFeedbackReport)]) {
+        NSDictionary *customParams = [strongDelegate customParametersForFeedbackReport];
+        if (customParams) {
+            [dict addEntriesFromDictionary:customParams];
         }
-
-        [dict setValidString:[self systemProfileAsString]
-                      forKey:POST_KEY_SYSTEM];
-
-        [dict setValidString:[[self consoleView] string]
-                      forKey:POST_KEY_CONSOLE];
-
-        [dict setValidString:[[self crashesView] string]
-                      forKey:POST_KEY_CRASHES];
-
-        [dict setValidString:[[self scriptView] string]
-                      forKey:POST_KEY_SHELL];
-
-        [dict setValidString:[[self preferencesView] string]
-                      forKey:POST_KEY_PREFERENCES];
-
-        [dict setValidString:[[self exceptionView] string]
-                      forKey:POST_KEY_EXCEPTION];
     }
+
+    [dict setValidString:[self systemProfileAsString]
+                  forKey:POST_KEY_SYSTEM];
+
+    [dict setValidString:[self crashLog]
+                  forKey:POST_KEY_CRASHES];
+    
+    [dict setValidString:[self exception]
+                    forKey:POST_KEY_EXCEPTION];
+
+    
+    [dict setValidString:[self preferences]
+                  forKey:POST_KEY_PREFERENCES];
 
     NSLog(@"Sending feedback to %@", url);
 
@@ -561,7 +524,7 @@
     [[NSUserDefaults standardUserDefaults] setObject:[NSDate date]
                                               forKey:DEFAULTS_KEY_LASTSUBMISSIONDATE];
     
-    [[NSUserDefaults standardUserDefaults] setObject:[[self emailBox] stringValue]
+    [[NSUserDefaults standardUserDefaults] setObject:[[self emailField] stringValue]
                                               forKey:DEFAULTS_KEY_SENDEREMAIL];
 
     [self close];
@@ -574,14 +537,11 @@
     [[self uploader] cancel];
 
     if ([[self type] isEqualToString:FR_EXCEPTION]) {
-        NSString *exitAfterException = [[[NSBundle mainBundle] infoDictionary] objectForKey:PLIST_KEY_EXITAFTEREXCEPTION];
-        if (exitAfterException && [exitAfterException isEqualToString:@"YES"]) {
-            // We want a pure exit() here I think.
-            // As an exception has already been raised there is no
-            // guarantee that the code path to [NSAapp terminate] is functional.
-            // Calling abort() will crash the app here but is that more desirable?
-            exit(EXIT_FAILURE);
-        }
+        // We want a pure exit() here I think.
+        // As an exception has already been raised there is no
+        // guarantee that the code path to [NSAapp terminate] is functional.
+        // Calling abort() will crash the app here but is that more desirable?
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -593,36 +553,12 @@
 
     [[self emailLabel] setStringValue:FRLocalizedString(@"Email address:", nil)];
     [[self detailsLabel] setStringValue:FRLocalizedString(@"Details", nil)];
-
-    [[self tabSystem] setLabel:FRLocalizedString(@"System", nil)];
-    [[self tabConsole] setLabel:FRLocalizedString(@"Console", nil)];
-    [[self tabCrash] setLabel:FRLocalizedString(@"CrashLog", nil)];
-    [[self tabScript] setLabel:FRLocalizedString(@"Script", nil)];
-    [[self tabPreferences] setLabel:FRLocalizedString(@"Preferences", nil)];
-    [[self tabException] setLabel:FRLocalizedString(@"Exception", nil)];
+    
+    [[self logView] setString:@""];
 
     [[self sendButton] setTitle:FRLocalizedString(@"Send", nil)];
     [[self cancelButton] setTitle:FRLocalizedString(@"Cancel", nil)];
 
-    [[[self consoleView] textContainer] setContainerSize:NSMakeSize(CGFLOAT_MAX, CGFLOAT_MAX)];
-    [[[self consoleView] textContainer] setWidthTracksTextView:NO];
-    [[self consoleView] setString:@""];
-
-    [[[self crashesView] textContainer] setContainerSize:NSMakeSize(CGFLOAT_MAX, CGFLOAT_MAX)];
-    [[[self crashesView] textContainer] setWidthTracksTextView:NO];
-    [[self crashesView] setString:@""];
-
-    [[[self scriptView] textContainer] setContainerSize:NSMakeSize(CGFLOAT_MAX, CGFLOAT_MAX)];
-    [[[self scriptView] textContainer] setWidthTracksTextView:NO];
-    [[self scriptView] setString:@""];
-
-    [[[self preferencesView] textContainer] setContainerSize:NSMakeSize(CGFLOAT_MAX, CGFLOAT_MAX)];
-    [[[self preferencesView] textContainer] setWidthTracksTextView:NO];
-    [[self preferencesView] setString:@""];
-
-    [[[self exceptionView] textContainer] setContainerSize:NSMakeSize(CGFLOAT_MAX, CGFLOAT_MAX)];
-    [[[self exceptionView] textContainer] setWidthTracksTextView:NO];
-    [[self exceptionView] setString:@""];
 }
 
 - (void) stopSpinner
@@ -632,85 +568,49 @@
     [[self sendButton] setEnabled:YES];
 }
 
-- (void) addTabViewItem:(NSTabViewItem*)theTabViewItem
-{
-    assert(theTabViewItem);
-
-    [[self tabView] insertTabViewItem:theTabViewItem atIndex:1];
-}
 
 - (void) populate
 {
     @autoreleasepool {
         
-        NSString *consoleLog = [self consoleLog];
+        
+        /*
+         NSString *consoleLog = [self consoleLog];
         if ([consoleLog length] > 0) {
             [self performSelectorOnMainThread:@selector(addTabViewItem:) withObject:[self tabConsole] waitUntilDone:YES];
             [[self consoleView] performSelectorOnMainThread:@selector(setString:) withObject:consoleLog waitUntilDone:YES];
         }
+         */
         
-        NSString *crashLog = [self crashLog];
-        if ([crashLog length] > 0) {
-            [self performSelectorOnMainThread:@selector(addTabViewItem:) withObject:[self tabCrash] waitUntilDone:YES];
-            [[self crashesView] performSelectorOnMainThread:@selector(setString:) withObject:crashLog waitUntilDone:YES];
+        NSString *logs = @"";
+        NSDictionary *logsforsave = [self logsForSave];
+        
+        for (NSString *current in [logsforsave allKeys]) {
+            
+            logs = [NSString stringWithFormat:@"%@%@->\n %@\n---\n\n", logs,current, [logsforsave objectForKey:current]];
         }
         
-        NSString *scriptLog = [self scriptLog];
-        if ([scriptLog length] > 0) {
-            [self performSelectorOnMainThread:@selector(addTabViewItem:) withObject:[self tabScript] waitUntilDone:YES];
-            [[self scriptView] performSelectorOnMainThread:@selector(setString:) withObject:scriptLog waitUntilDone:YES];
-        }
-        
-        NSString *preferences = [self preferences];
-        if ([preferences length] > 0) {
-            [self performSelectorOnMainThread:@selector(addTabViewItem:) withObject:[self tabPreferences] waitUntilDone:YES];
-            [[self preferencesView] performSelectorOnMainThread:@selector(setString:) withObject:preferences waitUntilDone:YES];
-        }
-        
+        [[self logView] performSelectorOnMainThread:@selector(setString:) withObject:logs waitUntilDone:YES];
+
         [self performSelectorOnMainThread:@selector(stopSpinner) withObject:self waitUntilDone:YES];
     }
 }
 
 - (void) reset
 {
-    [[self tabView] removeTabViewItem:[self tabConsole]];
-    [[self tabView] removeTabViewItem:[self tabCrash]];
-    [[self tabView] removeTabViewItem:[self tabScript]];
-    [[self tabView] removeTabViewItem:[self tabPreferences]];
-    [[self tabView] removeTabViewItem:[self tabException]];
+    [[self logView] setString:@""];
+    
+    [self setException:@""];
 
-    ABPerson *me = [[ABAddressBook sharedAddressBook] me];
-    ABMutableMultiValue *emailAddresses = [me valueForProperty:kABEmailProperty];
-
-    NSUInteger count = [emailAddresses count];
-
-    [[self emailBox] removeAllItems];
-
-    [[self emailBox] addItemWithObjectValue:FRLocalizedString(@"anonymous", nil)];
-
-    for (NSUInteger i=0; i<count; i++) {
-
-        NSString *emailAddress = [emailAddresses valueAtIndex:i];
-
-        [[self emailBox] addItemWithObjectValue:emailAddress];
-    }
-
-    NSInteger found = NSNotFound;
+    [[self emailField] setStringValue:@""];
+    
     NSString *email = [[NSUserDefaults standardUserDefaults] stringForKey:DEFAULTS_KEY_SENDEREMAIL];
     if (email) {
-        found = [[self emailBox] indexOfItemWithObjectValue:email];
-    }
-    if (found != NSNotFound) {
-        [[self emailBox] selectItemAtIndex:found];
-    } else if ([[self emailBox] numberOfItems] >= 2) {
-        NSString *defaultSender = [[[NSBundle mainBundle] infoDictionary] objectForKey:PLIST_KEY_DEFAULTSENDER];
-        NSUInteger idx = (defaultSender && [defaultSender isEqualToString:@"firstEmail"]) ? 1 : 0;
-        [[self emailBox] selectItemAtIndex:idx];
+        [[self emailField] setStringValue:email];
     }
 
     [[self headingField] setStringValue:@""];
     [[self messageView] setString:@""];
-    [[self exceptionView] setString:@""];
 
     [self showDetails:NO animate:NO];
     [[self detailsButton] setIntValue:NO];
@@ -719,17 +619,6 @@
     [[self indicator] startAnimation:self];
     [[self sendButton] setEnabled:NO];
 
-    //  setup 'send details' checkbox...
-    [[self sendDetailsCheckbox] setTitle:FRLocalizedString(@"Send details", nil)];
-    [[self sendDetailsCheckbox] setState:NSOnState];
-    NSString *sendDetailsIsOptional = [[[NSBundle mainBundle] infoDictionary] objectForKey:PLIST_KEY_SENDDETAILSISOPTIONAL];
-    if (sendDetailsIsOptional && [sendDetailsIsOptional isEqualToString:@"YES"]) {
-        [[self detailsLabel] setHidden:YES];
-        [[self sendDetailsCheckbox] setHidden:NO];
-    } else {
-        [[self detailsLabel] setHidden:NO];
-        [[self sendDetailsCheckbox] setHidden:YES];
-    }
 }
 
 - (void) showWindow:(id)sender
@@ -738,13 +627,6 @@
         [[self messageLabel] setStringValue:FRLocalizedString(@"Feedback comment label", nil)];
     } else {
         [[self messageLabel] setStringValue:FRLocalizedString(@"Comments:", nil)];
-    }
-
-    if ([[[self exceptionView] string] length] != 0) {
-        [[self tabView] insertTabViewItem:[self tabException] atIndex:1];
-        [[self tabView] selectTabViewItemWithIdentifier:@"Exception"];
-    } else {
-        [[self tabView] selectTabViewItemWithIdentifier:@"System"];
     }
 
     [NSThread detachNewThreadSelector:@selector(populate) toTarget:self withObject:nil];

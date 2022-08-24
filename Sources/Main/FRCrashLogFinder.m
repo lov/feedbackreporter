@@ -64,7 +64,7 @@
         NSString* logDir2 = @"Logs/DiagnosticReports/";
         logDir2 = [[libraryDirectory stringByAppendingPathComponent:logDir2] stringByExpandingTildeInPath];
 
-        // NSLog(@"Searching for crash files at %@", logDir2);
+         NSLog(@"Searching for crash files at %@", logDir2);
 
         if ([fileManager fileExistsAtPath:logDir2]) {
 
@@ -73,8 +73,8 @@
 
                 // NSLog(@"Checking crash file %@", file);
                 
-                NSString* expectedPrefix = [[FRApplication applicationName] stringByAppendingString:@"_"];
-                if ([[file pathExtension] isEqualToString:@"crash"] && [[file stringByDeletingPathExtension] hasPrefix:expectedPrefix]) {
+                NSString* expectedPrefix = [FRApplication applicationName];
+                if (([[file pathExtension] isEqualToString:@"crash"] || [[file pathExtension] isEqualToString:@"ips"]) && [[file stringByDeletingPathExtension] hasPrefix:expectedPrefix]) {
 
                     file = [[logDir2 stringByAppendingPathComponent:file] stringByExpandingTildeInPath];
 

@@ -33,19 +33,6 @@
 // no truncation takes place. (optional)
 #define PLIST_KEY_MAXCONSOLELOGSIZE     @"FRFeedbackReporter.maxConsoleLogSize"
 
-// String. Set the value of this key to 'YES' to present a checkbox where the user
-// can switch on and off the sending of details information. If not specified,
-// defaults to 'NO', hence no checkbox is shown.
-// If the user checks off the 'send details' option, just the e-mail address,
-// the comment, the type of report, and the application version are transmitted
-// to the server. (optional)
-#define PLIST_KEY_SENDDETAILSISOPTIONAL @"FRFeedbackReporter.sendDetailsIsOptional"
-
-// String. If set to 'YES' the application will exit after an exception has been caught.
-// If not specified, defaults to 'NO'. (optional)
-#define PLIST_KEY_EXITAFTEREXCEPTION    @"FRFeedbackReporter.exitAfterException"
-
-
 // Keys stored in the user defaults.
 #define DEFAULTS_KEY_LASTCRASHCHECKDATE @"FRFeedbackReporter.lastCrashCheckDate"
 #define DEFAULTS_KEY_LASTSUBMISSIONDATE @"FRFeedbackReporter.lastSubmissionDate"

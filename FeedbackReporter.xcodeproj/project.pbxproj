@@ -3,11 +3,10 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		14310F09160015A000F64299 /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F05160015A000F64299 /* AddressBook.framework */; };
 		14310F0A160015A000F64299 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F06160015A000F64299 /* AppKit.framework */; };
 		14310F0B160015A000F64299 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F07160015A000F64299 /* Foundation.framework */; };
 		14310F0C160015A000F64299 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F08160015A000F64299 /* SystemConfiguration.framework */; };
@@ -130,7 +129,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				14310F09160015A000F64299 /* AddressBook.framework in Frameworks */,
 				14310F0A160015A000F64299 /* AppKit.framework in Frameworks */,
 				14310F0B160015A000F64299 /* Foundation.framework in Frameworks */,
 				14310F0C160015A000F64299 /* SystemConfiguration.framework in Frameworks */,
@@ -362,7 +360,7 @@
 				LastUpgradeCheck = 0410;
 			};
 			buildConfigurationList = 1DEB91B108733DA50010E9CD /* Build configuration list for PBXProject "FeedbackReporter" */;
-			compatibilityVersion = "Xcode 3.2";
+			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
